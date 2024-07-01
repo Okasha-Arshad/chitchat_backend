@@ -75,13 +75,31 @@ router.post('/login', async (req, res) => {
     const payload = { user: { id: user.id } };
     jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '1h' }, (err, token) => {
       if (err) throw err;
-      res.json({ "token": token, "id": user.id });
+      res.json({
+        token: token,
+        id: user.id,
+        username: user.username,  // Include username in response
+        email: user.email         // Include email in response
+      });
     });
   } catch (error) {
     console.error('Error in login route:', error.message);
     res.status(500).send('Server error');
   }
 });
+
+
+// Get Users Route
+router.get('/users', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, username, email FROM users');
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error fetching users:', error.message);
+    res.status(500).send('Server error');
+  }
+});
+
 
 //Friend Route
 router.post('/friends/add', async (req, res) => {
