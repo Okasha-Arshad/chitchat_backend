@@ -114,12 +114,15 @@ router.post('/friends/add', async (req, res) => {
 });
 
 
-//Send Message Route
+// Send Message Route
 router.post('/messages/send', async (req, res) => {
   const { senderId, receiverId, content } = req.body;
   try {
-    await pool.query('INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3)', [senderId, receiverId, content]);
-    res.status(201).send('Message sent');
+    const result = await pool.query(
+      'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3) RETURNING *',
+      [senderId, receiverId, content]
+    );
+    res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error sending message:', error.message);
     res.status(500).send('Server error');
@@ -127,13 +130,13 @@ router.post('/messages/send', async (req, res) => {
 });
 
 
-//Get Message Route
+// Get Messages Route
 router.get('/messages', async (req, res) => {
-  const { userId, friendId } = req.query;
+  const { senderId, receiverId } = req.query;
   try {
     const result = await pool.query(
-      'SELECT * FROM messages WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1) ORDER BY created_at',
-      [userId, friendId]
+      'SELECT * FROM messages WHERE (sender_id = $1 AND receiver_id = $2) OR (sender_id = $2 AND receiver_id = $1) ORDER BY timestamp',
+      [senderId, receiverId]
     );
     res.status(200).json(result.rows);
   } catch (error) {
