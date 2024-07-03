@@ -1,10 +1,10 @@
 const express = require('express');
-const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
-const authRoutes = require('./routes/auth');
 const cors = require('cors');
 const http = require('http');
 const WebSocket = require('ws');
+const path = require('path');
+const authRoutes = require('./routes/auth');
 const pool = require('./db'); // Ensure you have the correct path to your db module
 
 dotenv.config();
@@ -20,8 +20,12 @@ app.use(cors({
 }));
 
 app.use(express.json());
-app.use(bodyParser.json());
+
+// Serve static files from the 'uploads' directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 app.use('/api/auth', authRoutes);
+
 app.get('/', (req, res) => {
   res.send('Welcome to the API');
 });
@@ -49,13 +53,14 @@ wss.on('connection', (ws) => {
 
     } else if (data.type === 'message') {
       console.log('we are in message');
-      const { recipientId, text } = data;
+      const { recipientId, text, imageUrl } = data;
 
       if (clients[recipientId]) {
-        var hitting_message = {
+        const hitting_message = {
           type: 'message',
           text,
-          senderId: data.userId
+          senderId: data.userId,
+          imageUrl // Add imageUrl to the message payload
         };
 
         clients[recipientId].send(JSON.stringify(hitting_message));
@@ -69,13 +74,14 @@ wss.on('connection', (ws) => {
 
     } else if (data.type === 'groupMessage') {
       console.log('we are in groupMessage');
-      const { groupId, text } = data;
+      const { groupId, text, imageUrl } = data;
 
       // Broadcast to all group members
       broadcastToGroupMembers(groupId, {
         type: 'groupMessage',
         text,
-        senderId: data.userId
+        senderId: data.userId,
+        imageUrl // Add imageUrl to the message payload
       });
 
       // Clear typing status when a message is sent

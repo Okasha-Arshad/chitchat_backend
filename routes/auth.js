@@ -2,10 +2,11 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
-
+const multer = require('multer');
 require('dotenv').config();
 
 const router = express.Router();
+const upload = multer({ dest: 'uploads/' }); // Configure multer to save files in 'uploads' directory
 
 // Signup Route
 router.post('/signup', async (req, res) => {
@@ -117,13 +118,23 @@ router.post('/friends/add', async (req, res) => {
   }
 });
 
+// Image Upload Route
+router.post('/upload', upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ msg: 'No file uploaded' });
+  }
+
+  const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+  res.status(201).json({ imageUrl });
+});
+
 // Send Message Route
-router.post('/messages/send', async (req, res) => {
-  const { senderId, receiverId, content } = req.body;
+router.post('/send-message', async (req, res) => {
+  const { senderId, receiverId, content, imageUrl } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO messages (sender_id, receiver_id, content) VALUES ($1, $2, $3) RETURNING *',
-      [senderId, receiverId, content]
+      'INSERT INTO messages (sender_id, receiver_id, content, image_url) VALUES ($1, $2, $3, $4) RETURNING *',
+      [senderId, receiverId, content, imageUrl]
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -131,6 +142,7 @@ router.post('/messages/send', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
+
 
 // Get Messages Route
 router.get('/messages', async (req, res) => {
