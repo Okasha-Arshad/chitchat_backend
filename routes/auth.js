@@ -5,9 +5,7 @@ const pool = require('../db');
 
 require('dotenv').config();
 
-
 const router = express.Router();
-
 
 // Signup Route
 router.post('/signup', async (req, res) => {
@@ -35,16 +33,9 @@ router.post('/signup', async (req, res) => {
       [username, email, hashedPassword]
     );
 
-    // user: {
-    //   id: user.id,
-    //   username: user.username,
-    //   email: user.email,
-    // }
-
     const user = result.rows[0];
     res.status(201).json({
       msg: 'Account has been created.'
-      
     });
   } catch (error) {
     console.error('Error in signup route:', error.message);
@@ -88,7 +79,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-
 // Get Users Route
 router.get('/users', async (req, res) => {
   try {
@@ -100,8 +90,22 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// Get User Details Route
+router.get('/user/:id', async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const result = await pool.query('SELECT id, username, email FROM users WHERE id = $1', [userId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ msg: 'User not found' });
+    }
+    res.status(200).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching user details:', error.message);
+    res.status(500).send('Server error');
+  }
+});
 
-//Friend Route
+// Friend Route
 router.post('/friends/add', async (req, res) => {
   const { userId, friendId } = req.body;
   try {
@@ -112,7 +116,6 @@ router.post('/friends/add', async (req, res) => {
     res.status(500).send('Server error');
   }
 });
-
 
 // Send Message Route
 router.post('/messages/send', async (req, res) => {
@@ -129,7 +132,6 @@ router.post('/messages/send', async (req, res) => {
   }
 });
 
-
 // Get Messages Route
 router.get('/messages', async (req, res) => {
   const { senderId, receiverId } = req.query;
@@ -145,5 +147,65 @@ router.get('/messages', async (req, res) => {
   }
 });
 
+// Create Group Route
+router.post('/groups/create', async (req, res) => {
+  const { name } = req.body;
+  try {
+    const result = await pool.query('INSERT INTO groups (name) VALUES ($1) RETURNING *', [name]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error creating group:', error.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Add User to Group Route
+router.post('/groups/addUser', async (req, res) => {
+  const { groupId, userId } = req.body;
+  try {
+    await pool.query('INSERT INTO group_members (group_id, user_id) VALUES ($1, $2)', [groupId, userId]);
+    res.status(201).send('User added to group');
+  } catch (error) {
+    console.error('Error adding user to group:', error.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Get Groups for User Route
+router.get('/groups/user/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await pool.query('SELECT g.* FROM groups g JOIN group_members gm ON g.id = gm.group_id WHERE gm.user_id = $1', [userId]);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error fetching groups for user:', error.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Get Messages for Group Route
+router.get('/groups/:groupId/messages', async (req, res) => {
+  const { groupId } = req.params;
+  try {
+    const result = await pool.query('SELECT * FROM group_messages WHERE group_id = $1 ORDER BY created_at ASC', [groupId]);
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error fetching messages for group:', error.message);
+    res.status(500).send('Server error');
+  }
+});
+
+// Send Message in Group Route
+router.post('/groups/:groupId/messages', async (req, res) => {
+  const { groupId } = req.params;
+  const { senderId, content } = req.body;
+  try {
+    const result = await pool.query('INSERT INTO group_messages (group_id, sender_id, content) VALUES ($1, $2, $3) RETURNING *', [groupId, senderId, content]);
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error sending message in group:', error.message);
+    res.status(500).send('Server error');
+  }
+});
 
 module.exports = router;
